@@ -1,0 +1,11 @@
+.DS_Store
+
+# Dependency directories
+node_modules
+
+
+# dotenv environment variables file
+.env
+test.js
+test2.js
+
