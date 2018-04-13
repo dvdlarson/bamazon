@@ -19,6 +19,7 @@
   "homepage": "https://github.com/dvdlarson/bamazon#readme",
   "dependencies": {
     "cli-table": "^0.3.1",
+    "dotenv": "^5.0.1",
     "inquirer": "^5.2.0",
     "mysql": "^2.15.0"
   }
