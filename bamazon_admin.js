@@ -1,4 +1,5 @@
 var inquirer = require("inquirer");
+var moment=require("moment");
 require('dotenv').config();
 var mysql      = require('mysql');
 var cliTable = require("cli-table");
@@ -34,7 +35,9 @@ var  getInformationFromDB = function(callback) {
         }
      }
    callback(null, usersArray);
+   
 });
+
 };
 //run this code when the app loads
 
@@ -56,8 +59,8 @@ getInformationFromDB(function (err, result) {
 
 var command = process.argv[2];
 
-if(command=="exit"){
-    console.log("Thank you for using the Bamazon Admin Portal.\nHave a great day.")
+if(command=="whatup"){
+    console.log("Hey homie, how's it going?\nYou're pretty awesome you know.\nHave a great day.")
     process.exit(0);
 }
 else if(command){
@@ -68,7 +71,7 @@ else if(command){
 //functions
 
 function deleteUser(userid){
-    connection.connect();
+//    connection.connect();
  var user=userid;
     connection.query(
     'DELETE FROM  BAMAZON_DB.USERS  WHERE ??=?',['USER_ID',user], function (error, results, fields) {
@@ -77,10 +80,10 @@ function deleteUser(userid){
     console.log(user+" has been deleted.");
     getAdminAction();
 });
-connection.end();
+
 }
 function updateUser(attr,value,userid){
-    connection.connect();
+    //connection.connect();
  var user=userid;
  var newValue=value;
  var attribute=attr;
@@ -91,20 +94,22 @@ function updateUser(attr,value,userid){
     console.log("User "+user+" updated successfully.\nNew Role: "+role);
     getAdminAction();
 });
-connection.end();
+
 }
 function addUser(valuesArray){
-    connection.connect();
-    var newUserValues=valuesArray;
-    var sql="INSERT INTO bamazon_db.users (EMP_ID, USER_ID, NAME, USER_ROLE, PW) VALUES ?"
-    connection.query(sql,[userList], function (error, results, fields) {
+   //
+   // connection.connect();
+  //  var newUserValues=valuesArray;
+    console.log("\nXXXXXXXXXXXXXXXXXXXXXXXXXXX:"+valuesArray[0]);
+    var sql="INSERT INTO bamazon_db.users (EMP_ID, USER_ID, NAME, USER_ROLE, PW,LAST_LOGIN_DT) VALUES ?";
+    connection.query(sql,[valuesArray], function (error, results, fields) {
     if (error) throw error;
     //console.log(results[0]);
-    console.log("New User "+name+" added successfully.");
+    console.log("New User added successfully.");
     getAdminAction();
     });
     
-    connection.end();
+   
 }
 
 function login(){
@@ -180,7 +185,7 @@ function login(){
     });
     }//end login function
  
-    function toTitleCase(str)
+function toTitleCase(str)
     {
         return str.replace(/\w\S*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
     }   
@@ -189,9 +194,75 @@ function login(){
 
 function getAdminAction(){
     console.log("made it to admin action homeboy");
-    process.exit(99);
+    var now = 0;
+    now=moment().format("MMMM D, YYYY hh:mm a");
+    inquirer.prompt({
+        type: "list",
+      message: "Current date and time: "+now+".\nWhat would you like to do?",
+      choices: ["Add User","Delete User", "Edit User","View User Activity","Supervisor Actions","Manager Actions","Log Out"],
+      name: "action"
+    }).then(function(response){
+        if(response.action=='Log Out'){
+            logOut();
+        }
+        else if (response.action=='Add User'){
+            getUserDetails();
+        }
+        else {
+            console.log("That isn't functional yet.");
+            getAdminAction();
+        }
+    });
 }
 
-//console.log(usersArray[0].)
-// console.log("userarray1:"+usersArray);
-// login(usersArray);
+function logOut(){
+    console.log("Thank you for using the Bamazon Admin Portal, "+user+".\nHave a great day.")
+    connection.end();
+    process.exit(0);
+}
+//EMP_ID, USER_ID, NAME, USER_ROLE, PW
+function getUserDetails(){
+    var detailsArray=[];
+    inquirer.prompt(
+        [{
+        name:"empid",
+        type:"input",
+        message:"6-Digit Employee ID:"
+            },
+        {
+        name:"userid",
+        type:"input",
+        message:"System User ID:"   
+        },
+        {
+        name:"name",
+        type:"input",
+        message:"Full Name:"   
+        },
+        {
+        name:"role",
+        type:"list",
+        choices:["MGR","SUP","ADMIN"],
+        message:"User Role"   
+        },
+        {
+        name:"password",
+        type:"input",
+        message:"Password:"   
+        }
+    ],
+        (err)=>{
+            console.log("It appears you are having difficulty. Please contact the help desk.");
+            process.exit(99);
+        }
+    ).then(function(response,error){//create array of arrays for insert statement
+
+        var timestamp=moment().format("YYYY-MM-DD HH:MM:SS");
+        var detailsArray= [[response.empid,response.userid,response.name,response.role,response.password,timestamp]];
+       // detailsArray[4].push(timestamp);
+        console.log("details array: "+detailsArray);
+        addUser(detailsArray);
+    })
+    }
+
+
