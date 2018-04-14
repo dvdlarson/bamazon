@@ -1,0 +1,33 @@
+admin login
+
+get super user actions
+    all admin actions plus 
+        add new admin(user role should be choice list including admin)
+
+get admin actions
+    all sup actions PLUS
+        add/delete/modify user(user role should be choice list excluding admin)
+
+get sup actions
+    all mgr actions PLUS
+        view sales by dept
+        create new dept
+      
+get mgr actions
+    view products
+    low inventory report
+    add to inventory
+    add new product
+
+========================================
+customer login
+    customer sign up
+    reset password
+    browse products
+        top sellers (top 1 in each category)
+        by category
+    buy something
+        display detailed item info, confirm purchase/cancel(lastAction)
+        insert new record in sales table
+        update inventory levels
+    add to cart
