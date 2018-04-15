@@ -2,7 +2,7 @@ var inquirer = require("inquirer");
 var moment=require("moment");
 require('dotenv').config();
 var mysql      = require('mysql');
-var cliTable = require("cli-table");
+var Table = require('cli-table');
 
 //var db_name=process.env.db_name;
 var connection = mysql.createConnection({
@@ -239,14 +239,14 @@ function getAdminAction(){
         }
     });
 }
-function getSupAction(){
+function getMgrAction(){
     //   console.log("made it to admin action homeboy");
        var now = 0;
        now=moment().format("MMMM D, YYYY hh:mm a");
        inquirer.prompt({
            type: "list",
          message: "Current date and time: "+now+".\nWhat would you like to do?",
-         choices: ["Add Product","Update Inventory","Log Out"],
+         choices: ["Add Product","Update Inventory","View Inventory","Log Out"],
          name: "action"
        }).then(function(response){
            if(response.action=='Log Out'){
@@ -258,9 +258,12 @@ function getSupAction(){
            else if (response.action=='Update Inventory'){
                updateInventory();
            }
+           else if (response.action=='View Inventory'){
+            showProducts();
+        }
            else {
                console.log("That isn't functional yet.");
-               getSupAction();
+               getMgrAction();
            }
        });
    }
@@ -270,7 +273,7 @@ function logOut(){
     connection.end();
     process.exit(0);
 }
-//EMP_ID, USER_ID, NAME, USER_ROLE, PW
+
 function getUserDetails(){
     var detailsArray=[];
     inquirer.prompt(
@@ -496,7 +499,7 @@ function updateInventory(){
             updateProduct(detailsArray);
         })
     }
-    function updateProduct(array){
+function updateProduct(array){
      var itemcd=array[0];
      var onhand=array[1];
      console.log(itemcd+"\nonhand:"+onhand);
@@ -513,4 +516,31 @@ function updateInventory(){
             getSupAction();
         });
     }
-    
+
+function showProducts(){
+    var table = new Table({
+        chars: { 'top': '═' , 'top-mid': '╤' , 'top-left': '╔' , 'top-right': '╗'
+               , 'bottom': '═' , 'bottom-mid': '╧' , 'bottom-left': '╚' , 'bottom-right': '╝'
+               , 'left': '║' , 'left-mid': '╟' , 'mid': '─' , 'mid-mid': '┼'
+               , 'right': '║' , 'right-mid': '╢' , 'middle': '│' },
+        head:['Department','Item Code','Description','Price']
+      });
+    var sql="SELECT d.DEPT_DESC,p.ITEM_CD,p.PROD_DESC,p.PRICE FROM  BAMAZON_DB.PRODUCTS AS p JOIN BAMAZON_DB.DEPARTMENTS as d ON p.DEPT_ID=d.DEPT_ID ORDER BY 1,3"
+        connection.query(sql,function (error, results, fields) {
+        if (error){ 
+            throw error;
+            process.exit(99);
+           }
+           console.log(results[0]);
+           var rows=JSON.stringify(results);
+           console.log(rows);
+           for(var i=0;i<results.length;i++){
+            table.push(
+                [results[i].DEPT_DESC,results[i].ITEM_CD,results[i].PROD_DESC,results[i].PRICE]
+            );
+           }
+        //    table.push(rows);
+           console.log(table.toString());
+           getMgrAction();
+        });
+      }
