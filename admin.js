@@ -210,17 +210,16 @@ function toTitleCase(str)
     {
         return str.replace(/\w\S*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
     }   
-    
-
-
+ 
 function getAdminAction(){
  //   console.log("made it to admin action homeboy");
     var now = 0;
     now=moment().format("MMMM D, YYYY hh:mm a");
+    console.log("\n===============================\nAdministrator Action Menu\n===============================\n");
     inquirer.prompt({
         type: "list",
       message: "Current date and time: "+now+".\nWhat would you like to do?",
-      choices: ["Add User","Delete User", "Edit User","View User Activity","Supervisor Actions","Manager Actions","Log Out"],
+      choices: ["Add User","Delete User", "Edit User","View All Users","View User Activity","Supervisor Actions","Manager Actions","Log Out"],
       name: "action"
     }).then(function(response){
         if(response.action=='Log Out'){
@@ -229,9 +228,12 @@ function getAdminAction(){
         else if (response.action=='Add User'){
             getUserDetails();
         }
-        else if (response.action=='Edit User'){
+        else if (response.action=='Reset User Password'){
             console.log("\n Not quite ready yet.");
             //editUser();
+        }
+        else if (response.action=='View All Users'){
+            viewAllUsers();
         }
         else {
             console.log("That isn't functional yet.");
@@ -241,12 +243,13 @@ function getAdminAction(){
 }
 function getMgrAction(){
     //   console.log("made it to admin action homeboy");
+       console.log("\n===============================\nManager Action Menu\n===============================\n");
        var now = 0;
        now=moment().format("MMMM D, YYYY hh:mm a");
        inquirer.prompt({
            type: "list",
          message: "Current date and time: "+now+".\nWhat would you like to do?",
-         choices: ["Add Product","Update Inventory","View Inventory","Log Out"],
+         choices: ["Add Product","Update Inventory","View All Products","Low Inventory Report","Log Out"],
          name: "action"
        }).then(function(response){
            if(response.action=='Log Out'){
@@ -258,16 +261,53 @@ function getMgrAction(){
            else if (response.action=='Update Inventory'){
                updateInventory();
            }
-           else if (response.action=='View Inventory'){
-            showProducts();
-        }
+           else if (response.action=='View All Products'){
+               mgrShowProducts();
+           }
+           else if (response.action=='Low Inventory Report'){
+                lowInventoryReport();
+           }
            else {
                console.log("That isn't functional yet.");
                getMgrAction();
            }
        });
    }
-
+function getSupAction(){
+    //   console.log("made it to admin action homeboy");
+       console.log("\n===============================\nSupervisor Action Menu\n===============================\n");
+       var now = 0;
+       now=moment().format("MMMM D, YYYY hh:mm a");
+       inquirer.prompt({
+           type: "list",
+         message: "Current date and time: "+now+".\nWhat would you like to do?",
+         choices: ["View Sales by Department","Create New Department","View All Products","Low Inventory Report","Manager Actions","Log Out"],
+         name: "action"
+       }).then(function(response){
+           if(response.action=='Log Out'){
+               logOut();
+           }
+           else if (response.action=='View Sales by Department'){
+               getProductDetails();
+           }
+           else if (response.action=='Update Inventory'){
+               updateInventory();
+           }
+           else if (response.action=='View All Products'){
+               mgrShowProducts();
+           }
+           else if (response.action=='Low Inventory Report'){
+                lowInventoryReport();
+           }
+           else if (response.action=='Supervisor Actions'){
+                getSupAction();
+           }
+           else {
+               console.log("That isn't functional yet.");
+               getMgrAction();
+           }
+       });
+   }
 function logOut(){
     console.log("Thank you for using the Bamazon Admin Portal.\nHave a great day.")
     connection.end();
@@ -525,7 +565,7 @@ function showProducts(){
                , 'right': '║' , 'right-mid': '╢' , 'middle': '│' },
         head:['Department','Item Code','Description','Price']
       });
-    var sql="SELECT d.DEPT_DESC,p.ITEM_CD,p.PROD_DESC,p.PRICE FROM  BAMAZON_DB.PRODUCTS AS p JOIN BAMAZON_DB.DEPARTMENTS as d ON p.DEPT_ID=d.DEPT_ID ORDER BY 1,3"
+    var sql="SELECT d.DEPT_DESC,p.ITEM_CD,p.PROD_DESC,p.PRICE FROM  BAMAZON_DB.PRODUCTS AS p JOIN BAMAZON_DB.DEPARTMENTS as d ON p.DEPT_ID=d.DEPT_ID WHERE ON_HAND_QTY > 0 ORDER BY 1,3"
         connection.query(sql,function (error, results, fields) {
         if (error){ 
             throw error;
@@ -540,7 +580,92 @@ function showProducts(){
             );
            }
         //    table.push(rows);
+
            console.log(table.toString());
            getMgrAction();
+        });
+      }
+      
+function mgrShowProducts(){
+        var table = new Table({
+            chars: { 'top': '═' , 'top-mid': '╤' , 'top-left': '╔' , 'top-right': '╗'
+                   , 'bottom': '═' , 'bottom-mid': '╧' , 'bottom-left': '╚' , 'bottom-right': '╝'
+                   , 'left': '║' , 'left-mid': '╟' , 'mid': '─' , 'mid-mid': '┼'
+                   , 'right': '║' , 'right-mid': '╢' , 'middle': '│' },
+            head:['Department','Item Code','Description','Price','Stock Level']
+          });
+        var sql="SELECT d.DEPT_DESC,p.ITEM_CD,p.PROD_DESC,p.PRICE,p.ON_HAND_QTY FROM  BAMAZON_DB.PRODUCTS AS p JOIN BAMAZON_DB.DEPARTMENTS as d ON p.DEPT_ID=d.DEPT_ID ORDER BY 1,3"
+            connection.query(sql,function (error, results, fields) {
+            if (error){ 
+                throw error;
+                process.exit(99);
+               }
+               for(var i=0;i<results.length;i++){
+                table.push(
+                    [results[i].DEPT_DESC,results[i].ITEM_CD,results[i].PROD_DESC,results[i].PRICE,results[i].ON_HAND_QTY]
+                );
+               }
+            //    table.push(rows);
+                var date=moment().format("dddd MMMM DD,YYYY hh:mm a");
+                console.log("\n======================================================\nAll Items Report as of "+date+"\n======================================================\n");
+                console.log(table.toString());
+                getMgrAction();
+            });
+          }
+
+function lowInventoryReport(){
+            var table = new Table({
+                chars: { 'top': '═' , 'top-mid': '╤' , 'top-left': '╔' , 'top-right': '╗'
+                       , 'bottom': '═' , 'bottom-mid': '╧' , 'bottom-left': '╚' , 'bottom-right': '╝'
+                       , 'left': '║' , 'left-mid': '╟' , 'mid': '─' , 'mid-mid': '┼'
+                       , 'right': '║' , 'right-mid': '╢' , 'middle': '│' },
+                head:['Department','Item Code','Description','Price','Stock Level']
+              });
+            var sql="SELECT d.DEPT_DESC,p.ITEM_CD,p.PROD_DESC,p.PRICE,p.ON_HAND_QTY FROM  BAMAZON_DB.PRODUCTS AS p JOIN BAMAZON_DB.DEPARTMENTS as d ON p.DEPT_ID=d.DEPT_ID WHERE ON_HAND_QTY <= 5 ORDER BY 1,3"
+                connection.query(sql,function (error, results, fields) {
+                if (error){ 
+                    throw error;
+                    process.exit(99);
+                   }
+                   for(var i=0;i<results.length;i++){
+                    table.push(
+                        [results[i].DEPT_DESC,results[i].ITEM_CD,results[i].PROD_DESC,results[i].PRICE,results[i].ON_HAND_QTY]
+                    );
+                   }
+                //    table.push(rows);
+                var date=moment().format("dddd MMMM DD,YYYY hh:mm a");
+                console.log("\n========================================================\nLow Inventory Report as of "+date+"\n========================================================\n");
+                   console.log(table.toString());
+                   getMgrAction();
+                });
+              }
+
+function buySomething(){
+console.log("you bought something");
+}
+function viewAllUsers(){
+    var table = new Table({
+        chars: { 'top': '═' , 'top-mid': '╤' , 'top-left': '╔' , 'top-right': '╗'
+               , 'bottom': '═' , 'bottom-mid': '╧' , 'bottom-left': '╚' , 'bottom-right': '╝'
+               , 'left': '║' , 'left-mid': '╟' , 'mid': '─' , 'mid-mid': '┼'
+               , 'right': '║' , 'right-mid': '╢' , 'middle': '│' },
+        head:['Employee ID','User ID','User Name','User Role','Last Login Date']
+      });
+    var sql="SELECT  * FROM BAMAZON_DB.USERS ORDER BY 4";
+        connection.query(sql,function (error, results, fields) {
+        if (error){ 
+            throw error;
+            process.exit(99);
+           }
+           for(var i=0;i<results.length;i++){
+            table.push(
+                [results[i].EMP_ID,results[i].USER_ID,results[i].USER_NAME,results[i].USER_ROLE,results[i].LAST_LOGIN_DT]
+            );
+           }
+        //    table.push(rows);
+    var date=moment().format("dddd MMMM DD,YYYY");
+        console.log("\n========================================================\nAll Active Employees Report as of "+date+"\n========================================================\n");
+        console.log(table.toString());
+        getMgrAction();
         });
       }
