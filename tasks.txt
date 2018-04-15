@@ -1,12 +1,14 @@
-admin login
+admin login - DONE
+
+CONVERT ADD USERS FUNCTION TO INSERT RECORDS FUNCTION - TAKE TABLE NAME AS PARAMETER - MAYBE
 
 get super user actions
     all admin actions plus 
         add new admin(user role should be choice list including admin)
 
-get admin actions
+get admin actions - DONE
     all sup actions PLUS
-        add/delete/modify user(user role should be choice list excluding admin)
+        add/delete/modify user(user role should be choice list excluding admin=NO)
 
 get sup actions
     all mgr actions PLUS
