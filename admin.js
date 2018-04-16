@@ -12,14 +12,19 @@ var connection = mysql.createConnection({
   database : process.env.db_name
 });
  
-
- var loginUser;
- var loginUserRole;
- var loginPW;
- var userList=[];//used when adding new user(s)
- var usersArray=[];
- var badAttempts=0;
- var activeUser={};
+var activeUser=[];
+var loginUser;
+var loginUserRole;
+var loginPW;
+var userList=[];//used when adding new user(s)
+var usersArray=[];
+var badAttempts=0;
+var activeUser={};
+var productArray=[];
+var newCustID;
+var salesDetails=[];
+var currentOrder=[];
+var itemDetail=[];
 
 //get all the users from the users table for login, etc
 
@@ -113,11 +118,8 @@ function updateUser(attr,value,userid){
             };
     });
 }
+
 function addUser(valuesArray){
-   //
-   // connection.connect();
-  //  var newUserValues=valuesArray;
-   // console.log("\nXXXXXXXXXXXXXXXXXXXXXXXXXXX:"+valuesArray[0]);
    
     var sql="INSERT INTO bamazon_db.users (EMP_ID, USER_ID, USER_NAME, USER_ROLE, PW,LAST_LOGIN_DT) VALUES ?";
     connection.query(sql,[valuesArray], function (error, results, fields) {
@@ -209,7 +211,7 @@ function login(){
 function toTitleCase(str)
     {
         return str.replace(/\w\S*/g, function(txt){return txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase();});
-    }   
+    }  
  
 function getAdminAction(){
  //   console.log("made it to admin action homeboy");
@@ -218,15 +220,16 @@ function getAdminAction(){
     console.log("\n===============================\nAdministrator Action Menu\n===============================\n");
     inquirer.prompt({
         type: "list",
+        pageSize:"9",
       message: "Current date and time: "+now+".\nWhat would you like to do?",
-      choices: ["Add User","Delete User", "Edit User","View All Users","View User Activity","Supervisor Actions","Manager Actions","Log Out"],
+      choices: ["Add User","Delete User", "Edit User","View All Users","View User Activity","Supervisor Actions","Manager Actions","Buy Something","Log Out"],
       name: "action"
     }).then(function(response){
         if(response.action=='Log Out'){
             logOut();
         }
         else if (response.action=='Add User'){
-            getUserDetails();
+            getUserDetails("add");
         }
         else if (response.action=='Reset User Password'){
             console.log("\n Not quite ready yet.");
@@ -235,6 +238,16 @@ function getAdminAction(){
         else if (response.action=='View All Users'){
             viewAllUsers();
         }
+        else if (response.action=='Supervisor Actions'){
+            getSupAction();
+        }
+        else if (response.action=='Manager Actions'){
+            viewMgrAction();
+        }
+        else if (response.action=='Buy Something'){
+            buySomething();
+        }
+
         else {
             console.log("That isn't functional yet.");
             getAdminAction();
@@ -288,7 +301,7 @@ function getSupAction(){
                logOut();
            }
            else if (response.action=='View Sales by Department'){
-               getProductDetails();
+               salesByDept();
            }
            else if (response.action=='Update Inventory'){
                updateInventory();
@@ -299,22 +312,25 @@ function getSupAction(){
            else if (response.action=='Low Inventory Report'){
                 lowInventoryReport();
            }
-           else if (response.action=='Supervisor Actions'){
-                getSupAction();
+           else if (response.action=='Manager Actions'){
+                getMgrAction();
+           }else if (response.action=='Create New Department'){
+            addNewDepartment();
            }
            else {
                console.log("That isn't functional yet.");
-               getMgrAction();
+               getMgrAction("Sup");
            }
        });
    }
+
 function logOut(){
     console.log("Thank you for using the Bamazon Admin Portal.\nHave a great day.")
     connection.end();
     process.exit(0);
 }
 
-function getUserDetails(){
+function getUserDetails(action){
     var detailsArray=[];
     inquirer.prompt(
         [{
@@ -352,10 +368,13 @@ function getUserDetails(){
     ).then(function(response,error){//create array of arrays for insert statement
 
         var timestamp=moment().format("YYYY-MM-DD HH:MM:SS");
+        var deleteArray=[[response.emp_id]]
         var detailsArray= [[response.empid,response.userid,response.name,response.role,response.password,timestamp]];
        // detailsArray[4].push(timestamp);
         console.log("details array: "+detailsArray);
-        addUser(detailsArray);
+        if(action=="add")
+        {addUser(detailsArray);}
+        else {deleteUser(response.empid);}
     })
     }
 
@@ -536,10 +555,11 @@ function updateInventory(){
     
             var timestamp=moment().format("YYYY-MM-DD HH:MM:SS");
             var detailsArray= [response.itemcd,response.onhand];
-            updateProduct(detailsArray);
+            updateProduct(detailsArray,"supMenu");
         })
     }
-function updateProduct(array){
+
+function updateProduct(array,source){
      var itemcd=array[0];
      var onhand=array[1];
      console.log(itemcd+"\nonhand:"+onhand);
@@ -548,12 +568,16 @@ function updateProduct(array){
         connection.query(sql,['ON_HAND_QTY',onhand,'ITEM_CD',itemcd], function (error, results, fields) {
             if (error){ 
                 throw error;
-                console.log("dumb db error that probably will never happen again");
+                console.log("dumb db error in updateProduct that I'm sure will never happen again");
                 process.exit(99);
                 }
             //console.log(results[0]);
             console.log("Inventory updated successfully.\nUpdated attribute: ON_HAND_QTY\nNew Value: "+onhand);
-            getSupAction();
+            if(source=="supMenu"){getSupAction();}
+            else {
+                addSalesRecord(salesDetails);
+
+            }
         });
     }
 
@@ -565,24 +589,25 @@ function showProducts(){
                , 'right': '║' , 'right-mid': '╢' , 'middle': '│' },
         head:['Department','Item Code','Description','Price']
       });
-    var sql="SELECT d.DEPT_DESC,p.ITEM_CD,p.PROD_DESC,p.PRICE FROM  BAMAZON_DB.PRODUCTS AS p JOIN BAMAZON_DB.DEPARTMENTS as d ON p.DEPT_ID=d.DEPT_ID WHERE ON_HAND_QTY > 0 ORDER BY 1,3"
+    var sql="SELECT d.DEPT_DESC,p.ITEM_CD,p.PROD_DESC,p.PRICE,p.ON_HAND_QTY,p.COST FROM  BAMAZON_DB.PRODUCTS AS p JOIN BAMAZON_DB.DEPARTMENTS as d ON p.DEPT_ID=d.DEPT_ID WHERE ON_HAND_QTY > 0 ORDER BY 1,3"
         connection.query(sql,function (error, results, fields) {
         if (error){ 
             throw error;
             process.exit(99);
-           }
-           console.log(results[0]);
-           var rows=JSON.stringify(results);
-           console.log(rows);
+           } //add items to array to push to table as well as global productArray for reference later
            for(var i=0;i<results.length;i++){
             table.push(
                 [results[i].DEPT_DESC,results[i].ITEM_CD,results[i].PROD_DESC,results[i].PRICE]
+            );
+            productArray.push(
+                [{["DEPT_DESC"]:results[i].DEPT_DESC},{["ITEM_CD"]:results[i].ITEM_CD},{["PROD_DESC"]:results[i].PROD_DESC},{["PRICE"]:results[i].PRICE},{["ON_HAND_QTY"]:results[i].ON_HAND_QTY},{["COST"]:results[i].COST}]
             );
            }
         //    table.push(rows);
 
            console.log(table.toString());
-           getMgrAction();
+         //  console.log("PROD ARRAY"+productArray);
+           buySomething("success");
         });
       }
       
@@ -640,9 +665,229 @@ function lowInventoryReport(){
                 });
               }
 
-function buySomething(){
-console.log("you bought something");
+function salesByDept(){
+                var table = new Table({
+                    chars: { 'top': '═' , 'top-mid': '╤' , 'top-left': '╔' , 'top-right': '╗'
+                           , 'bottom': '═' , 'bottom-mid': '╧' , 'bottom-left': '╚' , 'bottom-right': '╝'
+                           , 'left': '║' , 'left-mid': '╟' , 'mid': '─' , 'mid-mid': '┼'
+                           , 'right': '║' , 'right-mid': '╢' , 'middle': '│' },
+                    head:['Department Id','Dept. Description','Gross Sales','Total Cost','Total Profit']
+                  });
+                var sql="SELECT p.DEPT_ID,d.DEPT_DESC,SUM(s.GRAND_TOTAL) AS GROSS_SALES,SUM(s.COST) AS TOTAL_COST,SUM(s.GRAND_TOTAL)-SUM(s.COST) AS TOTAL_PROFIT FROM BAMAZON_DB.SALES AS s JOIN BAMAZON_DB.PRODUCTS as p ON s.ITEM_CD=p.ITEM_CD JOIN BAMAZON_DB.DEPARTMENTS AS d ON p.DEPT_ID=d.DEPT_ID GROUP BY 1,2"
+                    connection.query(sql,function (error, results, fields) {
+                    if (error){ 
+                        throw error;
+                        process.exit(99);
+                       }
+                       for(var i=0;i<results.length;i++){
+                        table.push(
+                            [results[i].DEPT_ID,results[i].DEPT_DESC,results[i].GROSS_SALES,results[i].TOTAL_PROFIT]
+                        );
+                       }
+                    //    table.push(rows);
+                    var date=moment().format("dddd MMMM DD,YYYY hh:mm a");
+                    console.log("\n========================================================\nSales by Department as of "+date+"\n========================================================\n");
+                       console.log(table.toString());
+                       getMgrAction();
+                    });
+                  }
+function buySomething(status){
+ var loggedInQuestions=   [{name:"itemcd",type:"input",message:"What is the item code you would like to purchase?"},
+        {name:"qty",type:"input",message:"How many would you like?"}];
+ var newUserQuestions=[{name:"itemcd",type:"input",filter: function(val) {return val.toUpperCase();},message:"What is the item code you would like to purchase?"},
+    {name:"qty",type:"input",message:"How many would you like?"},
+    {name:"name",type:"input",message:"Who should we ship it to? (Your name)"},
+    {name:"city",type:"input",message:"What city are we sending to?"},
+    {name:"state",type:"input",message:"What state are we sending to?"}];
+var questionSet=newUserQuestions;
+
+
+if(status==null){
+    showProducts();
+        }
+    else 
+    {
+        console.log("\n");
+        inquirer.prompt(questionSet,
+        (err)=>{
+            console.log("It appears you are having difficulty. Please contact the help desk.");
+            process.exit(99);
+        }
+    ).then(function(response,error){//create array of arrays for insert statement
+        if(error) {
+            //throw error;
+            console.log("There was an error in the buy item process.");
+            process.exit(99);
+        }
+        var timestamp=moment().format("MM/DD/YYYY");
+        var stockLevel;
+        var price; 
+        var totalCost,itemcost;
+        var grandTotal;
+        
+       
+        
+        var orderQTY = response.qty  //get current on_hand
+        console.log("orig orderqty: "+orderQTY);
+        for(var i=0;i<productArray.length;i++){
+            if(productArray[i][1].ITEM_CD==response.itemcd){
+                
+                stockLevel=productArray[i][4].ON_HAND_QTY;
+                itemcost = productArray[i][5].COST;
+                price = productArray[i][3].PRICE;
+                description = productArray[i][2].PROD_DESC;
+                console.log("stockLevel:",stockLevel);
+                if(stockLevel==0){
+                    console.log("Sorry, we are currently out of that item.");
+                    buySomething();
+                }
+                else if(stockLevel < orderQTY){
+                    console.log("We only have "+stockLevel+" of those in stock. Your order quantity has been adjusted.");
+                    orderQTY=stockLevel;
+                };
+            }
+        }
+       // console.log("itemcost:"+itemcost);
+       // console.log("new order qty:"+orderQTY);
+        totalCost = orderQTY * itemcost;
+       // console.log("total cost:"+totalCost);
+        var depleteQTY = stockLevel-orderQTY;
+      //  console.log("new inventory level:"+depleteQTY);
+        grandTotal=orderQTY*price;
+      //  console.log("grand total: "+ grandTotal)
+        var detailsArray= [response.itemcd,depleteQTY];
+        var custDetails = [[response.name,response.city,response.state,'bamazon1',timestamp]];
+        activeUser=[{"NAME":response.name},{"CITY":response.city},{"STATE":response.state}]
+        addCustomer(custDetails);
+     //   console.log("newCustID: "+newCustID);
+        //var custid  //rownumber from customer insert
+        itemDetail.push({"QTY":orderQTY},{"DESC":description},{"TOTAL":totalCost});
+     //   currentOrder.push(itemDetail);
+        salesDetails=[[timestamp,activeUser.CUST_ID,response.itemcd,orderQTY,totalCost,'0',grandTotal]];
+        console.log("Your order is complete.\nItems ordered:"+orderQTY+"\nProduct Description: "+description+"\nItem Total:"+totalCost);
+        //prompt for additional products
+        updateProduct(detailsArray,"cust");
+        
+
+      //  
+    })
 }
+}
+
+function buySomethingElse(){
+    var loggedInQuestions=   [{name:"itemcd",type:"input",message:"What is the item code you would like to purchase?"},
+           {name:"qty",type:"input",message:"How many would you like?"}];
+    
+   var questionSet=loggedInQuestions;
+   
+   
+   if(status==null){
+       showProducts();
+           }
+       else 
+       {
+           console.log("\n");
+           inquirer.prompt(questionSet,
+           (err)=>{
+               console.log("It appears you are having difficulty. Please contact the help desk.");
+               process.exit(99);
+           }
+       ).then(function(response,error){//create array of arrays for insert statement
+           if(error) {
+               //throw error;
+               console.log("There was an error in the buy item process.");
+               process.exit(99);
+           }
+           var timestamp=moment().format("MM/DD/YYYY");
+           var stockLevel;
+           var price; 
+           var totalCost,itemcost;
+           var grandTotal;
+           
+          
+           
+           var orderQTY = response.qty  //get current on_hand
+           console.log("orig orderqty: "+orderQTY);
+           for(var i=0;i<productArray.length;i++){
+               if(productArray[i][1].ITEM_CD==response.itemcd){
+                   
+                   stockLevel=productArray[i][4].ON_HAND_QTY;
+                   itemcost = productArray[i][5].COST;
+                   price = productArray[i][3].PRICE;
+                   description = productArray[i][2].PROD_DESC;
+                   console.log("stockLevel:",stockLevel);
+                   if(stockLevel==0){
+                       console.log("Sorry, we are currently out of that item.");
+                       buySomething();
+                   }
+                   else if(stockLevel < orderQTY){
+                       console.log("We only have "+stockLevel+" of those in stock. Your order quantity has been adjusted.");
+                       orderQTY=stockLevel;
+                   };
+               }
+           }
+          // console.log("itemcost:"+itemcost);
+          // console.log("new order qty:"+orderQTY);
+           totalCost = orderQTY * itemcost;
+          // console.log("total cost:"+totalCost);
+           var depleteQTY = stockLevel-orderQTY;
+         //  console.log("new inventory level:"+depleteQTY);
+           grandTotal=orderQTY*price;
+         //  console.log("grand total: "+ grandTotal)
+           var detailsArray= [response.itemcd,depleteQTY];
+         //  var custDetails = [[activeUser.NAME,activeUser.city,activeUser.state,'bamazon1',timestamp]];
+         //  activeUser=[{"NAME":response.name},{"CITY":response.city},{"STATE":response.state}]
+         //  addCustomer(custDetails);
+        //   console.log("newCustID: "+newCustID);
+           //var custid  //rownumber from customer insert
+           var itemDetail=[{"QTY":orderQTY},{"DESC":description},{"TOTAL":totalCost}];
+           currentOrder.push(itemDetail);
+           salesDetails=[[timestamp,newCustID,response.itemcd,orderQTY,totalCost,'0',grandTotal]];
+           //prompt for additional products
+           updateProduct(detailsArray,"cust");
+           
+   
+         //  
+       })
+   }
+   }
+
+function addCustomer(valuesArray){
+
+     var sql="INSERT INTO bamazon_db.customers (CUST_NAME, CITY, STATE, PW,LAST_ORDER_DT) VALUES ?";
+     connection.query(sql,[valuesArray], function (error, results, fields) {
+     if (error) throw error;
+     //console.log(results[0]);
+    // getInformationfromDB();
+    console.log("XXXXXXXXX===---added customer successfully---===XXXXXXXXX");
+     console.log("NEW CUSTOMER ID: "+results.insertId);
+     sql="SELECT * FROM bamazon_db.customers WHERE CUST_ID="+results.insertId
+     connection.query(sql,[valuesArray], function (error, results, fields) {
+        if (error) throw error;
+     newCustID=results.insertId;
+     activeUser.push({"CUST_ID":newCustID})
+     });
+     });
+     
+    
+ }
+ 
+function addSalesRecord(valuesArray){
+
+    var sql="INSERT INTO bamazon_db.sales (SALES_DT, CUST_ID, ITEM_CD, QTY,COST,PROMO_DISC,GRAND_TOTAL) VALUES ?";
+    connection.query(sql,[valuesArray], function (error, results, fields) {
+    if (error) throw error;
+    //console.log(results[0]);
+   // getInformationfromDB();
+  // console.log("XXXXXXXXX===---added sales record successfully---===XXXXXXXXX");
+   
+   nextCustomerAction();
+    //console.log("INSERT RESULTS: "+JSON.stringify(results));
+    });
+    
+   
+}
+
 function viewAllUsers(){
     var table = new Table({
         chars: { 'top': '═' , 'top-mid': '╤' , 'top-left': '╔' , 'top-right': '╗'
@@ -669,3 +914,69 @@ function viewAllUsers(){
         getMgrAction();
         });
       }
+
+function nextCustomerAction(){
+            console.log("\n");
+            inquirer.prompt(
+            [{
+            name:"action",
+            type:"list",
+            choices:["Buy something else","Log Out"],
+            message:"What would you like to do next?"
+                }            
+        ],
+            (err)=>{
+                console.log("It appears you are having difficulty. Please contact the help desk.");
+                process.exit(99);
+            }
+        ).then(function(response,error){//create array of arrays for insert statement
+            if(error) {
+                //throw error;
+                console.log("There was an error in the next customer action process.");
+                process.exit(99);
+            }
+            else if(response.action=="Log Out") {
+                logOut();
+            }
+            else {buySomethingElse();}
+        })
+    }
+
+function addNewDepartment(){
+        var detailsArray=[];
+        inquirer.prompt(
+            [{
+            name:"deptid",
+            type:"input",
+            message:"New Department ID:"
+                },
+            {
+            name:"desc",
+            type:"input",
+            message:"Department Description:"   
+            }            
+           
+        ],
+            (err)=>{
+                console.log("It appears you are having difficulty. Please contact the help desk.");
+                process.exit(99);
+            }
+        ).then(function(response,error){//create array of arrays for insert statement
+    
+            var timestamp=moment().format("YYYY-MM-DD HH:MM:SS");
+            var detailsArray= [[response.deptid,response.desc]];
+           // detailsArray[4].push(timestamp);
+            console.log("details array: "+detailsArray);
+            var sql="INSERT INTO bamazon_db.departments (DEPT_ID, DEPT_DESC) VALUES ?";
+            connection.query(sql,[valuesArray], function (error, results, fields) {
+            if (error){ 
+                throw error;
+                process.exit(99);
+                }
+            //console.log(results[0]);
+        //  getInformationfromDB();
+            console.log("Department added successfully.");
+            getSupAction();
+            });
+        })
+        }
