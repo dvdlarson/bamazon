@@ -183,7 +183,7 @@ function login(){
         var storedPW=activeUser.PW;
         var name=toTitleCase(activeUser.USER_NAME);
         loginUserRole=activeUser.USER_ROLE;
-        console.log(loginUserRole);
+      //  console.log(loginUserRole);
         name=name.substr(0,name.indexOf(' '));
         
         if (storedPW!==inputPW) {
@@ -645,7 +645,7 @@ function lowInventoryReport(){
                 var date=moment().format("dddd MMMM DD,YYYY hh:mm a");
                 console.log("\n========================================================\nLow Inventory Report as of "+date+"\n========================================================\n");
                    console.log(table.toString());
-                   getMgrAction();
+                   getSupAction();
                 });
               }
 
@@ -748,7 +748,7 @@ if(status==null){
         itemDetail.push({"QTY":orderQTY},{"DESC":description},{"TOTAL":totalCost});
      //   currentOrder.push(itemDetail);
         salesDetails=[[timestamp,activeUser.CUST_ID,response.itemcd,orderQTY,totalCost,'0',grandTotal]];
-        console.log("\n===================================\nORDER CONFIRMATION\n===================================\n\nYour order is complete.\nItems ordered:"+orderQTY+"\nProduct Description: "+description+"\nItem Total:"+totalCost);
+        console.log("\n===================================\nORDER CONFIRMATION\n===================================\n\nYour order is complete.\nItems ordered:"+orderQTY+"\nProduct Description: "+description+"\nItem Total:$"+grandTotal);
         //prompt for additional products
         updateProduct(detailsArray,"cust");
         

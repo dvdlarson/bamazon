@@ -77,14 +77,14 @@ else if(command){
 
 //functions
 
-function deleteUser(userid){
+function deleteUser(empid){
 //    connection.connect();
- var user=userid;
+ var user=empid;
     connection.query(
-    'DELETE FROM  BAMAZON_DB.USERS  WHERE ??=?',['USER_ID',user], function (error, results, fields) {
+    'DELETE FROM  BAMAZON_DB.USERS  WHERE ??=?',['EMP_ID',user], function (error, results, fields) {
     if (error) throw error;
     //console.log(results[0]);
-    console.log(user+" has been deleted.");
+    console.log("Employee ID: "+user+" has been deleted.");
     getAdminAction();
 });
 
@@ -126,7 +126,8 @@ function addUser(valuesArray){
     if (error) throw error;
     //console.log(results[0]);
    // getInformationfromDB();
-    console.log(usersArray);
+   // console.log(usersArray);
+   console.log("\n=============================\nNew user: "+valuesArray[2]+" has been added successfully.\n=============================\n")
     getAdminAction();
     });
     
@@ -231,8 +232,12 @@ function getAdminAction(){
         else if (response.action=='Add User'){
             getUserDetails("add");
         }
+        else if (response.action=='Delete User'){
+            getUserDetails("delete");
+        }
         else if (response.action=='Reset User Password'){
             console.log("\n Not quite ready yet.");
+            getAdminAction();
             //editUser();
         }
         else if (response.action=='View All Users'){
@@ -242,7 +247,7 @@ function getAdminAction(){
             getSupAction();
         }
         else if (response.action=='Manager Actions'){
-            viewMgrAction();
+            getMgrAction();
         }
         else if (response.action=='Buy Something'){
             buySomething();
@@ -307,10 +312,10 @@ function getSupAction(){
                updateInventory();
            }
            else if (response.action=='View All Products'){
-               mgrShowProducts();
+               mgrShowProducts("Sup");
            }
            else if (response.action=='Low Inventory Report'){
-                lowInventoryReport();
+                lowInventoryReport("Sup");
            }
            else if (response.action=='Manager Actions'){
                 getMgrAction();
@@ -319,7 +324,7 @@ function getSupAction(){
            }
            else {
                console.log("That isn't functional yet.");
-               getMgrAction("Sup");
+               getSupAction();
            }
        });
    }
@@ -332,8 +337,8 @@ function logOut(){
 
 function getUserDetails(action){
     var detailsArray=[];
-    inquirer.prompt(
-        [{
+    var questions=[];
+    var addQuestions = [{
         name:"empid",
         type:"input",
         message:"6-Digit Employee ID:"
@@ -360,7 +365,19 @@ function getUserDetails(action){
         message:"Password:"   
 
         }
-    ],
+    ];
+    var deleteQuestions=[{
+        name:"empid",
+        type:"input",
+        message:"Enter Employee ID of the user you would like to delete."
+            }];
+        //determine which questions to ask
+        if(action=="add"){
+            questions=addQuestions;
+        }
+        else {questions=deleteQuestions;}
+    inquirer.prompt(
+        questions,
         (err)=>{
             console.log("It appears you are having difficulty. Please contact the help desk.");
             process.exit(99);
@@ -368,7 +385,6 @@ function getUserDetails(action){
     ).then(function(response,error){//create array of arrays for insert statement
 
         var timestamp=moment().format("YYYY-MM-DD HH:MM:SS");
-        var deleteArray=[[response.emp_id]]
         var detailsArray= [[response.empid,response.userid,response.name,response.role,response.password,timestamp]];
        // detailsArray[4].push(timestamp);
         console.log("details array: "+detailsArray);
@@ -469,7 +485,7 @@ function addProduct(valuesArray){
      //console.log(results[0]);
    //  getInformationfromDB();
      console.log("Product added successfully.");
-     getSupAction();
+     getMgrAction();
      });
  }
 
@@ -494,7 +510,7 @@ function getProductDetails(){
         {
         name:"deptid",
         type:"list",
-        choices:["001","002"],
+        choices:["100","200","300"],
         message:"Choose Department"   
         },
         {
@@ -555,7 +571,7 @@ function updateInventory(){
     
             var timestamp=moment().format("YYYY-MM-DD HH:MM:SS");
             var detailsArray= [response.itemcd,response.onhand];
-            updateProduct(detailsArray,"supMenu");
+            updateProduct(detailsArray,"mgrMenu");
         })
     }
 
@@ -564,20 +580,23 @@ function updateProduct(array,source){
      var onhand=array[1];
      console.log(itemcd+"\nonhand:"+onhand);
      var sql ='UPDATE BAMAZON_DB.PRODUCTS SET ??=?  WHERE ??=?'
-    
+    // there is no error generated when trying to update a non-existent product 
         connection.query(sql,['ON_HAND_QTY',onhand,'ITEM_CD',itemcd], function (error, results, fields) {
-            if (error){ 
+            if(error) {
                 throw error;
-                console.log("dumb db error in updateProduct that I'm sure will never happen again");
-                process.exit(99);
+            }
+
+            else if (results.affectedRows==0){ 
+                console.log("There was an error updating the database. No rows were updated. Please check your item information and try again.");
+                getMgrAction();
                 }
             //console.log(results[0]);
-            console.log("Inventory updated successfully.\nUpdated attribute: ON_HAND_QTY\nNew Value: "+onhand);
-            if(source=="supMenu"){getSupAction();}
+           // console.log(JSON.stringify(results));
+           else  {console.log("Inventory updated successfully.\nUpdated attribute: ON_HAND_QTY\nNew Value: "+onhand);
+            if(source=="mgrMenu"){getMgrAction();}
             else {
                 addSalesRecord(salesDetails);
-
-            }
+            }};
         });
     }
 
@@ -611,7 +630,7 @@ function showProducts(){
         });
       }
       
-function mgrShowProducts(){
+function mgrShowProducts(source){
         var table = new Table({
             chars: { 'top': '═' , 'top-mid': '╤' , 'top-left': '╔' , 'top-right': '╗'
                    , 'bottom': '═' , 'bottom-mid': '╧' , 'bottom-left': '╚' , 'bottom-right': '╝'
@@ -634,11 +653,14 @@ function mgrShowProducts(){
                 var date=moment().format("dddd MMMM DD,YYYY hh:mm a");
                 console.log("\n======================================================\nAll Items Report as of "+date+"\n======================================================\n");
                 console.log(table.toString());
-                getMgrAction();
+                if (source=="Sup"){
+                    getSupAction();
+                }
+                else {getMgrAction();}
             });
           }
 
-function lowInventoryReport(){
+function lowInventoryReport(source){
             var table = new Table({
                 chars: { 'top': '═' , 'top-mid': '╤' , 'top-left': '╔' , 'top-right': '╗'
                        , 'bottom': '═' , 'bottom-mid': '╧' , 'bottom-left': '╚' , 'bottom-right': '╝'
@@ -661,11 +683,17 @@ function lowInventoryReport(){
                 var date=moment().format("dddd MMMM DD,YYYY hh:mm a");
                 console.log("\n========================================================\nLow Inventory Report as of "+date+"\n========================================================\n");
                    console.log(table.toString());
-                   getMgrAction();
+                   if (source=="Sup"){
+                    getSupAction();
+                }
+                else {getMgrAction();}
                 });
               }
 
 function salesByDept(){
+
+    //not sure why the table here does not show the total_profit figures. The query returns them just fine.
+
                 var table = new Table({
                     chars: { 'top': '═' , 'top-mid': '╤' , 'top-left': '╔' , 'top-right': '╗'
                            , 'bottom': '═' , 'bottom-mid': '╧' , 'bottom-left': '╚' , 'bottom-right': '╝'
@@ -681,14 +709,14 @@ function salesByDept(){
                        }
                        for(var i=0;i<results.length;i++){
                         table.push(
-                            [results[i].DEPT_ID,results[i].DEPT_DESC,results[i].GROSS_SALES,results[i].TOTAL_PROFIT]
+                            [results[i].DEPT_ID,results[i].DEPT_DESC,results[i].GROSS_SALES,results[i].TOTAL_COST,results[i].TOTAL_PROFIT]
                         );
                        }
                     //    table.push(rows);
                     var date=moment().format("dddd MMMM DD,YYYY hh:mm a");
                     console.log("\n========================================================\nSales by Department as of "+date+"\n========================================================\n");
                        console.log(table.toString());
-                       getMgrAction();
+                       getSupAction();
                     });
                   }
 function buySomething(status){
@@ -911,7 +939,7 @@ function viewAllUsers(){
     var date=moment().format("dddd MMMM DD,YYYY");
         console.log("\n========================================================\nAll Active Employees Report as of "+date+"\n========================================================\n");
         console.log(table.toString());
-        getMgrAction();
+        getAdminAction();
         });
       }
 
@@ -968,7 +996,7 @@ function addNewDepartment(){
            // detailsArray[4].push(timestamp);
             console.log("details array: "+detailsArray);
             var sql="INSERT INTO bamazon_db.departments (DEPT_ID, DEPT_DESC) VALUES ?";
-            connection.query(sql,[valuesArray], function (error, results, fields) {
+            connection.query(sql,[detailsArray], function (error, results, fields) {
             if (error){ 
                 throw error;
                 process.exit(99);

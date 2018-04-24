@@ -6,7 +6,7 @@ get super user actions
     all admin actions plus 
         add new admin(user role should be choice list including admin)
 
-get admin actions - DONE
+get admin actions - IN PROGRESS
     all sup actions PLUS
         add/delete/modify user(user role should be choice list excluding admin=NO)
 
@@ -18,8 +18,8 @@ get sup actions
 get mgr actions
     view products
     low inventory report
-    add to inventory
-    add new product
+    add to inventory - done
+    add new product - done
 
 ========================================
 customer login
