@@ -25,6 +25,7 @@ var newCustID;
 var salesDetails=[];
 var currentOrder=[];
 var itemDetail=[];
+var newUserName;
 
 //get all the users from the users table for login, etc
 
@@ -127,7 +128,7 @@ function addUser(valuesArray){
     //console.log(results[0]);
    // getInformationfromDB();
    // console.log(usersArray);
-   console.log("\n=============================\nNew user: "+valuesArray[2]+" has been added successfully.\n=============================\n")
+   console.log("\n=============================\nNew user: "+newUserName+" has been added successfully.\n=============================\n")
     getAdminAction();
     });
     
@@ -385,6 +386,7 @@ function getUserDetails(action){
     ).then(function(response,error){//create array of arrays for insert statement
 
         var timestamp=moment().format("YYYY-MM-DD HH:MM:SS");
+        newUserName=response.name;
         var detailsArray= [[response.empid,response.userid,response.name,response.role,response.password,timestamp]];
        // detailsArray[4].push(timestamp);
         console.log("details array: "+detailsArray);

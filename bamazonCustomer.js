@@ -683,6 +683,9 @@ function buySomething(status){
     {name:"name",type:"input",message:"Who should we ship it to? (Your name)"},
     {name:"city",type:"input",message:"What city are we sending to?"},
     {name:"state",type:"input",message:"What state are we sending to?"}];
+
+    //enhancement - if status = loggedIN then show the other questions, push products into shoppingCart array and display to user at checkout with the option to delete items, or proceed to checkout
+    //for now, just show the buy item quesitons
 var questionSet=newUserQuestions;
 
 
@@ -701,7 +704,7 @@ if(status==null){
         if(error) {
             //throw error;
             console.log("There was an error in the buy item process.");
-            process.exit(99);
+            buySomething();
         }
         var timestamp=moment().format("MM/DD/YYYY");
         var stockLevel;
@@ -720,10 +723,13 @@ if(status==null){
                 itemcost = productArray[i][5].COST;
                 price = productArray[i][3].PRICE;
                 description = productArray[i][2].PROD_DESC;
-           //     console.log("stockLevel:",stockLevel);
+               // console.log("product array:",JSON.stringify(productArray));
                 if(stockLevel==0){
                     console.log("Sorry, we are currently out of that item.");
                     buySomething();
+                }
+                else if (productArray.length==0){
+                    {console.log("We don't recognize that item code. Please check and re-enter.")}
                 }
                 else if(stockLevel < orderQTY){
                     console.log("We only have "+stockLevel+" of those in stock. Your order quantity has been adjusted.");
@@ -743,7 +749,7 @@ if(status==null){
         var custDetails = [[response.name,response.city,response.state,'bamazon1',timestamp]];
         activeUser=[{"NAME":response.name},{"CITY":response.city},{"STATE":response.state}]
         addCustomer(custDetails);
-     //   console.log("newCustID: "+newCustID);
+       // console.log(activeUser);
         //var custid  //rownumber from customer insert
         itemDetail.push({"QTY":orderQTY},{"DESC":description},{"TOTAL":totalCost});
      //   currentOrder.push(itemDetail);
@@ -839,13 +845,12 @@ function addCustomer(valuesArray){
     // getInformationfromDB();
    // console.log("XXXXXXXXX===---added customer successfully---===XXXXXXXXX");
    //  console.log("NEW CUSTOMER ID: "+results.insertId);
-     sql="SELECT * FROM bamazon_db.customers WHERE CUST_ID="+results.insertId
-     connection.query(sql,[valuesArray], function (error, results, fields) {
-        if (error) throw error;
+     
+   //this is not working so the sales table is not updating properly with the new customer ID
      newCustID=results.insertId;
-     activeUser.push({"CUST_ID":newCustID})
+     activeUser.push({"CUST_ID":newCustID});
      });
-     });
+     
      
     
  }
